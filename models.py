@@ -6,78 +6,78 @@ class Card:
         self.suit = suit
         self.rank = rank
     
-    def __repr__(self): #to display the card in the console like "A♠"
+    def __repr__(self): # to display the card in the console like "A♠"
         return f"{self.rank}{self.suit}"
     
-    def __eq__(self, other): #called when we use == to compare two cards
+    def __eq__(self, other): # called when we use == to compare two cards
         if isinstance(other, Card):
             return self.suit == other.suit and self.rank == other.rank
         return False
+
+
+class Queue:
+    def __init__(self):
+        self.items = []
+    
+    def enqueue(self, item):
+        self.items.append(item)
+    
+    def dequeue(self):
+        if self.is_empty():
+            return None
+        return self.items.pop(0)
+    
+    def is_empty(self):
+        return len(self.items) == 0
+    
+    def size(self):
+        return len(self.items)
 
 
 class Deck:
     def __init__(self):
         suits = ['♠', '♥', '♦', '♣']
         ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-        self.cards = [Card(suit, rank) for suit in suits for rank in ranks] # uses an array to store the cards
-        self.shuffle()
+        cards = [Card(suit, rank) for suit in suits for rank in ranks]
+        random.shuffle(cards) # maybe we can change this for our own shuffle algorithm
+        self.cards = Queue() # uses a queue to store the cards
+        for card in cards:
+            self.cards.enqueue(card)
     
-    def shuffle(self): # maybe we can change this for our own shuffle algorithm
-        random.shuffle(self.cards)
+    def shuffle(self):
+        cards_list = []
+        while not self.cards.is_empty():
+            cards_list.append(self.cards.dequeue())
+        random.shuffle(cards_list)
+        for card in cards_list:
+            self.cards.enqueue(card)
     
     def draw(self):
-        if self.cards:
-            return self.cards.pop()
-        return None
+        return self.cards.dequeue()
     
     def deal(self, num_cards: int):
-        return [self.cards.pop() for _ in range(num_cards)]
+        dealt = []
+        for _ in range(num_cards):
+            if not self.cards.is_empty():
+                dealt.append(self.cards.dequeue())
+        return dealt
 
 
-class Node:
-    def __init__(self, card: Card):
-        self.card = card
-        self.next = None
-
-
-class Hand: #uses a linked list to store the cards in the hand
+class Hand:
     def __init__(self):
-        self.head = None
+        self.cards = []
     
     def add_card(self, card: Card):
-        new_node = Node(card)
-        if self.head is None:
-            self.head = new_node
-        else:
-            current = self.head
-            while current.next:
-                current = current.next
-            current.next = new_node
+        self.cards.append(card)
     
     def remove_card(self, card: Card):
-        if self.head is None:
-            return False
-        
-        if self.head.card == card:
-            self.head = self.head.next
+        if card in self.cards:
+            self.cards.remove(card)
             return True
-        
-        current = self.head
-        while current.next:
-            if current.next.card == card:
-                current.next = current.next.next
-                return True
-            current = current.next
-        
         return False
     
-    def __repr__(self):
-        cards = []
-        current = self.head
-        while current:
-            cards.append(str(current.card))
-            current = current.next
-        return str(cards)
+    def __repr__(self): # to display the hand in the console like "[A♠, 2♥, 3♦, 4♣]"
+        return str(self.cards)
 
 
 class Player:
