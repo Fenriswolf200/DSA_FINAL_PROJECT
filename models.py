@@ -44,11 +44,11 @@ class Deck:
         for card in cards:
             self.cards.enqueue(card)
     
-    def shuffle(self):
+    def shuffle(self): # enqueue to list and then shuffle and then enqueue again
         cards_list = []
         while not self.cards.is_empty():
             cards_list.append(self.cards.dequeue())
-        random.shuffle(cards_list)
+        random.shuffle(cards_list) # maybe we can change this for our own shuffle algorithm
         for card in cards_list:
             self.cards.enqueue(card)
     
