@@ -1,4 +1,4 @@
-from cards import Hand, Card
+from .cards import Hand, Card
 class Player:
     def __init__(self, order: int):
         self.order = order

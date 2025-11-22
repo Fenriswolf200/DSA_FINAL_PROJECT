@@ -1,7 +1,7 @@
 from random import randint
-from spaces import CardSpace
-from cards import Hand, Card, DeckCard
-from player import Player
+from game_logic.spaces import CardSpace
+from game_logic.cards import Hand, Card, DeckCard
+from game_logic.player import Player
 
 
 

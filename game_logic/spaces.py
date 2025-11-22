@@ -1,4 +1,4 @@
-from cards import Hand, Card
+from .cards import Hand, Card
 
 
 
