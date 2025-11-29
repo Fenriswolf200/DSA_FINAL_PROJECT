@@ -1,5 +1,6 @@
 from game2dboard import Board
 from functools import partial
+
 from random import shuffle
 
 from data_structures.cards import Card
@@ -43,6 +44,31 @@ class SolitaireGame:
         
         # track number of moves
         self.move_count = 0
+        
+        # initialize the game by dealing cards
+        self.deal_cards()
+    
+    def deal_cards(self):
+        """deal cards to tableau and stock pile at game start"""
+        # create and shuffle a full deck
+        deck = create_deck()
+        
+        # deal to tableau: pile i gets i+1 cards (pile 0 gets 1, pile 1 gets 2, etc.)
+        deck_index = 0
+        for i in range(7):
+            for j in range(i + 1):
+                card = deck[deck_index]
+                # only the last card (top card) of each pile is face-up
+                if j == i:
+                    card.revealed = True
+                else:
+                    card.revealed = False
+                self.tableau[i].cards.append(card)
+                deck_index += 1
+        
+        # remaining cards go to stock pile (face-down)
+        for i in range(deck_index, len(deck)):
+            self.stock.add(deck[i])
 
 
 # helper function to create a full deck of 52 cards
@@ -60,13 +86,21 @@ def create_deck() -> list[Card]:
 if __name__ == "__main__":
     # initialize solitaire game
     game = SolitaireGame()
-    print("Solitaire game initialized")
-    print(f"Stock pile: {game.stock.size()} cards")
+    print("Solitaire game initialized and cards dealt!")
+    print(f"\nStock pile: {game.stock.size()} cards")
     print(f"Waste pile: {game.waste.size()} cards")
-    print(f"Tableau columns: {len(game.tableau)}")
-    print(f"Foundation piles: {len(game.foundations)}")
-    print("\nData structures:")
-    print(f"  - Stock: StockPile (stack)")
-    print(f"  - Waste: WastePile (stack)")
-    print(f"  - Foundations: 4 FoundationPile objects (stacks)")
-    print(f"  - Tableau: 7 TableauPile objects (lists)")
+    print(f"Foundation piles: {len(game.foundations)} (all empty)")
+    
+    print("\nTableau setup:")
+    for i, pile in enumerate(game.tableau):
+        face_down = sum(1 for card in pile.cards if not card.revealed)
+        face_up = sum(1 for card in pile.cards if card.revealed)
+        print(f"  Column {i+1}: {pile.size()} cards ({face_down} face-down, {face_up} face-up)")
+        if pile.size() > 0:
+            top_card = pile.peek()
+            rank_name = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][top_card.rank - 1]
+            print(f"    Top card: {rank_name}{top_card.suit}")
+    
+    print("\nTotal cards:")
+    total = game.stock.size() + game.waste.size() + sum(pile.size() for pile in game.tableau)
+    print(f"  {total}/52 cards (should be 52)")
