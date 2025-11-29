@@ -1,7 +1,13 @@
-from game_logic.cards import Card, FoundationPile, TableauPile, StockPile, WastePile
 from game2dboard import Board
 from functools import partial
 from random import shuffle
+
+from data_structures.cards import Card
+from data_structures.foundation import FoundationPile
+from data_structures.tableau import TableauPile
+from data_structures.stock import StockPile
+from data_structures.waste import WastePile
+
 
 # solitaire uses ranks 1-13 (Ace through King)
 RANKS = list(range(1, 14))  # 1=Ace, 11=Jack, 12=Queen, 13=King
