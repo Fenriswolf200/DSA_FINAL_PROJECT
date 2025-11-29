@@ -1,9 +1,6 @@
-from game2dboard import Board
-
 from game_logic.best_move_tree import find_best_move
 from game_logic.best_move_graph import find_best_move_graph
 
-from functools import partial
 from random import shuffle
 
 from data_structures.cards import Card
@@ -13,99 +10,187 @@ from data_structures.stock import StockPile
 from data_structures.waste import WastePile
 from config import RANKS, SUITS, RANK_NAMES, TABLEAU_COLUMNS
 
-# solitaire game class with data structures
+
+# ----------------------------
+#   SOLITAIRE GAME OBJECT
+# ----------------------------
+
 class SolitaireGame:
     def __init__(self):
-        # stock pile (draw pile) - stack for cards to draw from
         self.stock = StockPile()
-        
-        # waste pile (discard pile) - stack for drawn cards
         self.waste = WastePile()
-        
-        # foundation piles (4 stacks, one per suit: H, D, C, S)
-        # cards must be placed in ascending order (Ace to King)
+
         self.foundations = {
-            "H": FoundationPile("H"),  # hearts
-            "D": FoundationPile("D"),  # diamonds
-            "C": FoundationPile("C"),  # clubs
-            "S": FoundationPile("S")   # spades
+            "H": FoundationPile("H"),
+            "D": FoundationPile("D"),
+            "C": FoundationPile("C"),
+            "S": FoundationPile("S")
         }
-        
-        # tableau piles (7 columns)
-        # each column can contain face-down and face-up cards
+
         self.tableau = [TableauPile() for _ in range(TABLEAU_COLUMNS)]
-        
-        # undo stack - stores game states for undo functionality
+
         self.undo_stack = []
-        
-        # redo stack - stores game states for redo functionality
         self.redo_stack = []
-        
-        # track number of moves
         self.move_count = 0
-        
-        # initialize the game by dealing cards
+
         self.deal_cards()
-    
+
     def deal_cards(self):
-        """deal cards to tableau and stock pile at game start"""
-        # create and shuffle a full deck
         deck = create_deck()
-        
-        # deal to tableau: pile i gets i+1 cards (pile 0 gets 1, pile 1 gets 2, etc.)
         deck_index = 0
+
         for i in range(TABLEAU_COLUMNS):
             for j in range(i + 1):
                 card = deck[deck_index]
-                # only the last card (top card) of each pile is face-up
-                if j == i:
-                    card.revealed = True
-                else:
-                    card.revealed = False
+                card.revealed = (j == i)
                 self.tableau[i].cards.append(card)
                 deck_index += 1
-        
-        # remaining cards go to stock pile (face-down)
+
         for i in range(deck_index, len(deck)):
             self.stock.add(deck[i])
 
 
-# helper function to create a full deck of 52 cards
 def create_deck() -> list[Card]:
     deck = []
     for suit in SUITS:
         for rank in RANKS:
             deck.append(Card(rank, suit))
-    
-    # shuffle the deck
     shuffle(deck)
     return deck
 
 
+# ----------------------------
+#     LEGAL MOVE GENERATOR
+# ----------------------------
+
+def list_all_legal_moves(game):
+    moves = []
+
+    # DRAW
+    moves.append(("draw", None))
+
+    # WASTE -> FOUNDATION
+    if game.waste.peek():
+        c = game.waste.peek()
+        if game.foundations[c.suit].can_add(c):
+            moves.append(("w->f", c))
+
+    # WASTE -> TABLEAU
+    if game.waste.peek():
+        c = game.waste.peek()
+        for i, pile in enumerate(game.tableau):
+            if pile.can_add(c):
+                moves.append((f"w->t{i}", c))
+
+    # TABLEAU -> FOUNDATION
+    for i, pile in enumerate(game.tableau):
+        c = pile.peek()
+        if c and game.foundations[c.suit].can_add(c):
+            moves.append((f"t{i}->f", c))
+
+    # TABLEAU -> TABLEAU
+    for i, src in enumerate(game.tableau):
+        c = src.peek()
+        if c:
+            for j, dst in enumerate(game.tableau):
+                if i != j and dst.can_add(c):
+                    moves.append((f"t{i}->t{j}", c))
+
+    return moves
+
+
+# ----------------------------
+#         APPLY MOVE
+# ----------------------------
+
+def apply_move(game, move):
+    name, card = move
+
+    if name == "draw":
+        drawn = game.stock.draw()
+        if drawn:
+            drawn.revealed = True
+            game.waste.add(drawn)
+        return
+
+    # WASTE → FOUNDATION
+    if name == "w->f":
+        c = game.waste.pop()
+        game.foundations[c.suit].add(c)
+        return
+
+    # WASTE → TABLEAU
+    if name.startswith("w->t"):
+        idx = int(name[4:])
+        c = game.waste.pop()
+        game.tableau[idx].add(c)
+        return
+
+    # TABLEAU → FOUNDATION
+    if "->f" in name:
+        src = int(name[1])
+        c = game.tableau[src].pop()
+        game.foundations[c.suit].add(c)
+        return
+
+    # TABLEAU → TABLEAU
+    if "->t" in name:
+        src = int(name[1])
+        dst = int(name[4])
+        c = game.tableau[src].pop()
+        game.tableau[dst].add(c)
+        return
+
+
+# ----------------------------
+#   PLAYER MOVE PARSER
+# ----------------------------
+
+def parse_move_input(text, legal_moves):
+    text = text.strip().lower()
+
+    for mv in legal_moves:
+        if text == mv[0].lower():
+            return mv
+    return None
+
+
+# ----------------------------
+#         MAIN LOOP
+# ----------------------------
+
 if __name__ == "__main__":
-    # initialize solitaire game
     game = SolitaireGame()
 
+    print("\nSolitaire game initialized!")
+    print("Commands: draw | w->f | w->tX | tX->f | tX->tY | quit\n")
 
-    print("Solitaire game initialized and cards dealt!")
+    while True:
+        best_tree = find_best_move(game)
+        best_graph = find_best_move_graph(game)
 
-    best = find_best_move(game)
-    best_graph_move = find_best_move_graph(game)
+        print(f"\nBest move using tree:  {best_tree}")
+        print(f"Best move using graph: {best_graph}")
 
-    print(f"\nStock pile: {game.stock.size()} cards")
-    print(f"Waste pile: {game.waste.size()} cards")
-    print(f"Foundation piles: {len(game.foundations)} (all empty)")
-    
-    print("\nTableau setup:")
-    for i, pile in enumerate(game.tableau):
-        face_down = sum(1 for card in pile.cards if not card.revealed)
-        face_up = sum(1 for card in pile.cards if card.revealed)
-        print(f"  Column {i+1}: {pile.size()} cards ({face_down} face-down, {face_up} face-up)")
-        if pile.size() > 0:
-            top_card = pile.peek()
-            rank_name = RANK_NAMES[top_card.rank]
-            print(f"    Top card: {rank_name}{top_card.suit}")
-    
-    print("\nTotal cards:")
-    total = game.stock.size() + game.waste.size() + sum(pile.size() for pile in game.tableau)
-    print(f"  {total}/52 cards (should be 52)")
+        legal = list_all_legal_moves(game)
+
+        print("\nLegal moves:")
+        for m in legal:
+            name, c = m
+            card_display = "" if c is None else f" ({RANK_NAMES[c.rank]}{c.suit})"
+            print(" -", name + card_display)
+
+        user = input("\nEnter ANY move: ").strip()
+
+        if user == "quit":
+            print("Game ended.")
+            break
+
+        chosen = parse_move_input(user, legal)
+
+        if not chosen:
+            print("Invalid move. Try again.")
+            continue
+
+        apply_move(game, chosen)
+        print(f"Applied move: {chosen[0]}")
