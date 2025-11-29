@@ -1,4 +1,8 @@
 from game2dboard import Board
+
+from game_logic.best_move_tree import find_best_move
+from game_logic.best_move_graph import find_best_move_graph
+
 from functools import partial
 from random import shuffle
 
@@ -81,7 +85,13 @@ def create_deck() -> list[Card]:
 if __name__ == "__main__":
     # initialize solitaire game
     game = SolitaireGame()
+
+
     print("Solitaire game initialized and cards dealt!")
+
+    best = find_best_move(game)
+    best_graph_move = find_best_move_graph(game)
+
     print(f"\nStock pile: {game.stock.size()} cards")
     print(f"Waste pile: {game.waste.size()} cards")
     print(f"Foundation piles: {len(game.foundations)} (all empty)")
