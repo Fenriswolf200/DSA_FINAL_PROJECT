@@ -1,5 +1,7 @@
 # stock pile - simple stack for drawing cards
 
+from data_structures.cards import Card
+
 class StockPile:
     def __init__(self):
         self.cards = []  # stack (list)

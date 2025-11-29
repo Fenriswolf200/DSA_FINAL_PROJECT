@@ -1,5 +1,7 @@
 # foundation pile - stack that accepts cards of same suit in ascending order (A→K)
 
+from data_structures.cards import Card
+
 class FoundationPile:
     def __init__(self, suit: str):
         self.suit = suit  # H, D, C, or S
