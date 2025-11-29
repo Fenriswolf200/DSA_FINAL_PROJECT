@@ -1,5 +1,7 @@
 # waste pile - receives cards from stock
 
+from data_structures.cards import Card
+
 class WastePile:
     def __init__(self):
         self.cards = []  # stack (list)

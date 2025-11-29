@@ -1,4 +1,6 @@
-# tableau pile - accepts cards in descending order with alternating colors      
+# tableau pile - accepts cards in descending order with alternating colors    
+
+from data_structures.cards import Card
 
 class TableauPile:
     def __init__(self):
