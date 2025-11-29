@@ -1,6 +1,5 @@
 from game2dboard import Board
 from functools import partial
-
 from random import shuffle
 
 from data_structures.cards import Card
@@ -8,11 +7,7 @@ from data_structures.foundation import FoundationPile
 from data_structures.tableau import TableauPile
 from data_structures.stock import StockPile
 from data_structures.waste import WastePile
-
-
-# solitaire uses ranks 1-13 (Ace through King)
-RANKS = list(range(1, 14))  # 1=Ace, 11=Jack, 12=Queen, 13=King
-SUITS = ["H", "D", "C", "S"]  # Hearts, Diamonds, Clubs, Spades
+from config import RANKS, SUITS, RANK_NAMES, TABLEAU_COLUMNS
 
 # solitaire game class with data structures
 class SolitaireGame:
@@ -34,7 +29,7 @@ class SolitaireGame:
         
         # tableau piles (7 columns)
         # each column can contain face-down and face-up cards
-        self.tableau = [TableauPile() for _ in range(7)]
+        self.tableau = [TableauPile() for _ in range(TABLEAU_COLUMNS)]
         
         # undo stack - stores game states for undo functionality
         self.undo_stack = []
@@ -55,7 +50,7 @@ class SolitaireGame:
         
         # deal to tableau: pile i gets i+1 cards (pile 0 gets 1, pile 1 gets 2, etc.)
         deck_index = 0
-        for i in range(7):
+        for i in range(TABLEAU_COLUMNS):
             for j in range(i + 1):
                 card = deck[deck_index]
                 # only the last card (top card) of each pile is face-up
@@ -98,7 +93,7 @@ if __name__ == "__main__":
         print(f"  Column {i+1}: {pile.size()} cards ({face_down} face-down, {face_up} face-up)")
         if pile.size() > 0:
             top_card = pile.peek()
-            rank_name = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][top_card.rank - 1]
+            rank_name = RANK_NAMES[top_card.rank]
             print(f"    Top card: {rank_name}{top_card.suit}")
     
     print("\nTotal cards:")
