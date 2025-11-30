@@ -1,5 +1,3 @@
-# waste pile - receives cards from stock
-
 from data_structures.cards import Card
 
 class WastePile:

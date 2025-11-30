@@ -1,5 +1,3 @@
-# stock pile - simple stack for drawing cards
-
 from data_structures.cards import Card
 from data_structures.waste import WastePile
 

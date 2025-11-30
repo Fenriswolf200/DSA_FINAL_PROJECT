@@ -1,10 +1,7 @@
-# card ranks (1-13)
 RANKS = list(range(1, 14))  # 1=ace, 11=jack, 12=queen, 13=king
 
-# card suits
 SUITS = ["H", "D", "C", "S"]  # hearts, diamonds, clubs, spades
 
-# rank display names
 RANK_NAMES = {
     1: "A",
     2: "2",
@@ -21,7 +18,6 @@ RANK_NAMES = {
     13: "K"
 }
 
-# suit symbols for display
 SUIT_SYMBOLS = {
     "H": "H",  # hearts (red)
     "D": "D",  # diamonds (red)
@@ -29,7 +25,6 @@ SUIT_SYMBOLS = {
     "S": "S"   # spades (black)
 }
 
-# suit colors
 SUIT_COLORS = {
     "H": "red",
     "D": "red",
@@ -41,8 +36,5 @@ SUIT_COLORS = {
 DRAW_COUNT = 1  # number of cards to draw from stock at once (1 or 3)
 MAX_RECYCLES = None  # max times waste can be recycled to stock (None = unlimited)
 
-# Board settings
 BOARD_COLUMNS = 7  # number of Board piles
-
-# foundation settings
 FOUNDATION_PILES = 4  # one for each suit
