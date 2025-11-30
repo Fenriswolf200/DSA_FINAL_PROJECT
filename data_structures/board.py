@@ -1,8 +1,8 @@
-# tableau pile - accepts cards in descending order with alternating colors    
+# Board pile - accepts cards in descending order with alternating colors    
 
 from data_structures.cards import Card
 
-class TableauPile:
+class BoardPile:
     def __init__(self):
         self.cards = []  # can have face-down and face-up cards
     
@@ -25,7 +25,7 @@ class TableauPile:
     
     def add(self, card: Card) -> bool:
         if self.can_add(card):
-            card.revealed = True  # cards added to tableau are face-up
+            card.revealed = True  # cards added to Board are face-up
             self.cards.append(card)
             return True
         return False

@@ -15,21 +15,21 @@ class Move:
         return f"Move({self.move_type}, {details_copy})"
 
 def serialize_state(game):
-    tableau_ser = tuple(tuple((c.rank, c.suit, c.revealed) for c in pile.cards) for pile in game.tableau)
+    Board_ser = tuple(tuple((c.rank, c.suit, c.revealed) for c in pile.cards) for pile in game.Board)
     foundation_ser = tuple(tuple((c.rank, c.suit) for c in game.foundations[suit].cards) for suit in ["H","D","C","S"])
     stock_ser = tuple((c.rank, c.suit) for c in game.stock.cards)
     waste_ser = tuple((c.rank, c.suit) for c in game.waste.cards)
-    return (tableau_ser, foundation_ser, stock_ser, waste_ser)
+    return (Board_ser, foundation_ser, stock_ser, waste_ser)
 
 def score_state(game):
     score = 0
     for suit in ["H","D","C","S"]:
         score += 10 * len(game.foundations[suit].cards)
-    for pile in game.tableau:
+    for pile in game.Board:
         for card in pile.cards:
             if card.revealed:
                 score += 2
-    for pile in game.tableau:
+    for pile in game.Board:
         if pile.size() == 0:
             score += 3
     return score
@@ -47,24 +47,24 @@ def apply_move(game, move):
         card = g.waste.pop()
         g.foundations[card.suit].add(card)
         return g
-    if m.move_type == "waste_to_tableau":
+    if m.move_type == "waste_to_Board":
         card = g.waste.pop()
-        g.tableau[m.details["column"]].add(card)
+        g.Board[m.details["column"]].add(card)
         return g
-    if m.move_type == "tableau_to_foundation":
+    if m.move_type == "Board_to_foundation":
         col = m.details["from"]
-        card = g.tableau[col].pop()
+        card = g.Board[col].pop()
         g.foundations[card.suit].add(card)
-        if g.tableau[col].size() > 0:
-            g.tableau[col].cards[-1].revealed = True
+        if g.Board[col].size() > 0:
+            g.Board[col].cards[-1].revealed = True
         return g
-    if m.move_type == "tableau_to_tableau":
+    if m.move_type == "Board_to_Board":
         src = m.details["from"]
         dst = m.details["to"]
-        card = g.tableau[src].pop()
-        g.tableau[dst].add(card)
-        if g.tableau[src].size() > 0:
-            g.tableau[src].cards[-1].revealed = True
+        card = g.Board[src].pop()
+        g.Board[dst].add(card)
+        if g.Board[src].size() > 0:
+            g.Board[src].cards[-1].revealed = True
         return g
     return g
 
@@ -74,20 +74,20 @@ def get_legal_moves(game):
         card = game.waste.peek()
         if game.foundations[card.suit].can_add(card):
             moves.append(Move("waste_to_foundation", {"card": card}))
-        for i, pile in enumerate(game.tableau):
+        for i, pile in enumerate(game.Board):
             if pile.can_add(card):
-                moves.append(Move("waste_to_tableau", {"column": i, "card": card}))
-    for i, pile in enumerate(game.tableau):
+                moves.append(Move("waste_to_Board", {"column": i, "card": card}))
+    for i, pile in enumerate(game.Board):
         if pile.size() == 0:
             continue
         card = pile.peek()
         if game.foundations[card.suit].can_add(card):
-            moves.append(Move("tableau_to_foundation", {"from": i, "card": card}))
-        for j, dst in enumerate(game.tableau):
+            moves.append(Move("Board_to_foundation", {"from": i, "card": card}))
+        for j, dst in enumerate(game.Board):
             if i == j or dst.size() == 0:
                 continue
             if dst.can_add(card):
-                moves.append(Move("tableau_to_tableau", {"from": i, "to": j, "card": card}))
+                moves.append(Move("Board_to_Board", {"from": i, "to": j, "card": card}))
     if game.stock.size() > 0:
         moves.append(Move("draw_stock", {}))
     elif game.waste.size() > 0:

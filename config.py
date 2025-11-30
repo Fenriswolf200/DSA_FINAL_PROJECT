@@ -23,10 +23,10 @@ RANK_NAMES = {
 
 # suit symbols for display
 SUIT_SYMBOLS = {
-    "H": "♥",  # hearts (red)
-    "D": "♦",  # diamonds (red)
-    "C": "♣",  # clubs (black)
-    "S": "♠"   # spades (black)
+    "H": "H",  # hearts (red)
+    "D": "D",  # diamonds (red)
+    "C": "C",  # clubs (black)
+    "S": "S"   # spades (black)
 }
 
 # suit colors
@@ -41,8 +41,8 @@ SUIT_COLORS = {
 DRAW_COUNT = 1  # number of cards to draw from stock at once (1 or 3)
 MAX_RECYCLES = None  # max times waste can be recycled to stock (None = unlimited)
 
-# tableau settings
-TABLEAU_COLUMNS = 7  # number of tableau piles
+# Board settings
+BOARD_COLUMNS = 7  # number of Board piles
 
 # foundation settings
 FOUNDATION_PILES = 4  # one for each suit

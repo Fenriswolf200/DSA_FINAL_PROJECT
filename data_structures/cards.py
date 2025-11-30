@@ -24,7 +24,7 @@ class Card:
     
     def __repr__(self):
         # Display card as "A♥", "10♠", "K♦", etc.
-        suit_symbols = {"H": "♥", "D": "♦", "C": "♣", "S": "♠"}
+        suit_symbols = {"H": "H", "D": "D", "C": "C", "S": "S"}
         rank_names = {1: "A", 11: "J", 12: "Q", 13: "K"}
         rank_str = rank_names.get(self.rank, str(self.rank))
         return f"{rank_str}{suit_symbols[self.suit]}"
