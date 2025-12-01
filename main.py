@@ -55,7 +55,6 @@ class SolitaireGame:
         self.deal_cards() 
 
 
-    # This function creates a deck of cards :|
     def create_deck(self) -> list[Card]:
         deck = []
         for suit in SUITS:
@@ -80,6 +79,22 @@ class SolitaireGame:
 
         for i in range(deck_index, len(deck)):
             self.stock.add(deck[i])
+    
+    def is_won(self) -> bool:
+        for suit in ["H", "D", "C", "S"]:
+            if len(self.foundations[suit].cards) != 13:
+                return False
+        return True
+    
+    def has_valid_moves(self) -> bool:
+        if self.stock.size() > 0 or self.waste.size() > 0:
+            return True
+        for pile in self.Board:
+            if pile.size() > 0:
+                for other_pile in self.Board:
+                    if pile is not other_pile and other_pile.can_add(pile.peek()):
+                        return True
+        return False
 
 
 # This function executes a move that moves a card in the game.
@@ -207,10 +222,86 @@ def attempt_move(game: SolitaireGame, selected: Dict[str, Any], target: Tuple[st
 
 
 # ---------------- AUTO-PLAY FUNCTIONS ----------------
-def get_best_move_tree_object(game, depth=4):
+def detect_move_cycle(move_history, threshold=8):
+    """detect if the same moves are being reversed repeatedly or stuck in patterns"""
+    if len(move_history) < 16:
+        return False
+    
+    # check for immediate reversals (A->B, B->A) - must be consecutive
+    reversal_count = 0
+    i = len(move_history) - 1
+    
+    while i >= 1 and reversal_count < threshold:
+        current = move_history[i]
+        previous = move_history[i - 1]
+        
+        if (current.get("from") == previous.get("to") and 
+            current.get("to") == previous.get("from") and
+            current.get("type") == previous.get("type")):
+            reversal_count += 1
+            i -= 2
+        else:
+            break
+    
+    # only trigger if we have 8+ consecutive reversals
+    if reversal_count >= threshold:
+        return True
+    
+    # check for repeated move patterns (same move made many times)
+    recent_moves = move_history[-30:]
+    if len(recent_moves) >= 20:
+        # count how many times the last move appears in recent history
+        last_move = recent_moves[-1]
+        last_move_str = f"{last_move.get('type')}_{last_move.get('from')}_{last_move.get('to')}"
+        
+        count = 0
+        for move in recent_moves:
+            move_str = f"{move.get('type')}_{move.get('from')}_{move.get('to')}"
+            if move_str == last_move_str:
+                count += 1
+        
+        # only trigger if same move made 10+ times in last 30 moves
+        if count >= 10:
+            return True
+    
+    # check for state oscillation (last 4 moves repeat 3+ times)
+    if len(move_history) >= 24:
+        pattern = move_history[-4:]
+        pattern_str = [f"{m.get('type')}_{m.get('from')}_{m.get('to')}" for m in pattern]
+        
+        # check if this 4-move pattern has repeated at least 3 times
+        repeat_count = 0
+        for i in range(len(move_history) - 4, -4, -4):
+            if i < 0:
+                break
+            check_pattern = move_history[i:i+4]
+            check_pattern_str = [f"{m.get('type')}_{m.get('from')}_{m.get('to')}" for m in check_pattern]
+            if check_pattern_str == pattern_str:
+                repeat_count += 1
+            else:
+                break
+        
+        if repeat_count >= 3:
+            return True
+    
+    return False
+
+
+def get_best_move_tree_object(game, depth=6, recent_moves=None, force_draw=False):
     """get the actual Move object from tree algorithm"""
-    from game_logic.best_move_tree import search_best_move
-    score, move = search_best_move(game, depth)
+    from game_logic.best_move_tree import search_best_move, get_legal_moves
+    from game_logic.move_utils import Move
+    
+    # if forced draw and stock has cards, draw immediately
+    if force_draw and game.stock.size() > 0:
+        return Move("draw_stock", {})
+    
+    score, move = search_best_move(game, depth, recent_moves=recent_moves)
+    
+    # if no good move found and we have stock, force draw
+    if (not move or score < 0) and game.stock.size() > 0:
+        return Move("draw_stock", {})
+    
     return move
 
 def get_best_move_graph_object(game, max_depth=4):
@@ -346,10 +437,86 @@ if __name__ == "__main__":
     show_suggestion_ms = 0
     button_message = None
     hints_enabled = False
+    game_state = "playing"
+    move_history = []
+    moves_without_foundation_progress = 0
+    last_foundation_count = 0
+    auto_playing = False
+    auto_play_delay = 0
     
 
     running = True
     while running:
+        if game_state == "won":
+            restart_button_rect = pygame.Rect(WINDOW_W//2 - 75, WINDOW_H//2 + 20, 150, 40)
+            mouse_pos = pygame.mouse.get_pos()
+            restart_hover = restart_button_rect.collidepoint(mouse_pos)
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if restart_button_rect.collidepoint(event.pos):
+                        game = SolitaireGame()
+                        selected = None
+                        game_state = "playing"
+                        move_history = []
+                        moves_without_foundation_progress = 0
+                        last_foundation_count = 0
+                        auto_playing = False
+                        button_message = None
+            
+            screen.fill(BACKGROUND_COLOR)
+            overlay = pygame.Surface((WINDOW_W, WINDOW_H))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+            
+            win_text = font.render("YOU WIN!", True, (255, 215, 0))
+            win_rect = win_text.get_rect(center=(WINDOW_W//2, WINDOW_H//2 - 30))
+            screen.blit(win_text, win_rect)
+            
+            draw_button(screen, restart_button_rect, "Restart", font_small, restart_hover)
+            
+            pygame.display.flip()
+            clock.tick(60)
+            continue
+        
+        if game_state == "lost":
+            restart_button_rect = pygame.Rect(WINDOW_W//2 - 75, WINDOW_H//2 + 20, 150, 40)
+            mouse_pos = pygame.mouse.get_pos()
+            restart_hover = restart_button_rect.collidepoint(mouse_pos)
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if restart_button_rect.collidepoint(event.pos):
+                        game = SolitaireGame()
+                        selected = None
+                        game_state = "playing"
+                        move_history = []
+                        moves_without_foundation_progress = 0
+                        last_foundation_count = 0
+                        auto_playing = False
+                        button_message = None
+            
+            screen.fill(BACKGROUND_COLOR)
+            overlay = pygame.Surface((WINDOW_W, WINDOW_H))
+            overlay.set_alpha(200)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+            
+            lose_text = font.render("GAME STUCK - NO VALID MOVES", True, (255, 60, 60))
+            lose_rect = lose_text.get_rect(center=(WINDOW_W//2, WINDOW_H//2 - 30))
+            screen.blit(lose_text, lose_rect)
+            
+            draw_button(screen, restart_button_rect, "Restart", font_small, restart_hover)
+            
+            pygame.display.flip()
+            clock.tick(60)
+            continue
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -359,48 +526,79 @@ if __name__ == "__main__":
 
                 # handle hint button
                 if layout.get("button") and layout["button"].collidepoint(pos):
-                    hints_enabled = not hints_enabled
-                    if hints_enabled:
-                        # calculate hints when toggled on
-                        best_move_tree = find_best_move(game)
-                        best_move_graph = find_best_move_graph(game)
-                        button_message = {
-                            "graph_message": f"Best move from graph: {best_move_graph}",
-                            "tree_message": f"Best move from tree: {best_move_tree}",
-                        }
-                    else:
-                        # clear hints when toggled off
-                        button_message = None
+                    best_move_tree = find_best_move(game)
+                    best_move_graph = find_best_move_graph(game)
+                    button_message = {
+                        "graph_message": f"Best move from graph: {best_move_graph}",
+                        "tree_message": f"Best move from tree: {best_move_tree}",
+                    }
                     continue
-                
+
                 # handle auto-play tree button
                 if layout.get("auto_tree_button") and layout["auto_tree_button"].collidepoint(pos):
-                    move = get_best_move_tree_object(game)
+                    move = get_best_move_tree_object(game, recent_moves=move_history)
                     if move:
                         apply_move_to_game(game, move)
-                        # recalculate hints if enabled
-                        if hints_enabled:
-                            best_move_tree = find_best_move(game)
-                            best_move_graph = find_best_move_graph(game)
-                            button_message = {
-                                "graph_message": f"Best move from graph: {best_move_graph}",
-                                "tree_message": f"Best move from tree: {best_move_tree}",
-                            }
+                        
+                        # track move for cycle detection
+                        move_info = {
+                            "type": move.move_type,
+                            "from": move.details.get("from"),
+                            "to": move.details.get("to")
+                        }
+                        move_history.append(move_info)
+                        if len(move_history) > 30:
+                            move_history.pop(0)
+                        
+                        current_foundation_count = sum(len(game.foundations[s].cards) for s in ["H", "D", "C", "S"])
+                        if current_foundation_count > last_foundation_count:
+                            moves_without_foundation_progress = 0
+                            last_foundation_count = current_foundation_count
+                        else:
+                            moves_without_foundation_progress += 1
+                        
+                        if game.is_won():
+                            game_state = "won"
+                        elif detect_move_cycle(move_history, threshold=8):
+                            game_state = "lost"
+                        elif moves_without_foundation_progress > 120:
+                            game_state = "lost"
                     continue
-                
+
                 # handle auto-play graph button
                 if layout.get("auto_graph_button") and layout["auto_graph_button"].collidepoint(pos):
                     move = get_best_move_graph_object(game)
                     if move:
                         apply_move_to_game(game, move)
-                        # recalculate hints if enabled
-                        if hints_enabled:
-                            best_move_tree = find_best_move(game)
-                            best_move_graph = find_best_move_graph(game)
-                            button_message = {
-                                "graph_message": f"Best move from graph: {best_move_graph}",
-                                "tree_message": f"Best move from tree: {best_move_tree}",
-                            }
+                        
+                        # track move for cycle detection
+                        move_info = {
+                            "type": move.move_type,
+                            "from": move.details.get("from"),
+                            "to": move.details.get("to")
+                        }
+                        move_history.append(move_info)
+                        if len(move_history) > 30:
+                            move_history.pop(0)
+                        
+                        current_foundation_count = sum(len(game.foundations[s].cards) for s in ["H", "D", "C", "S"])
+                        if current_foundation_count > last_foundation_count:
+                            moves_without_foundation_progress = 0
+                            last_foundation_count = current_foundation_count
+                        else:
+                            moves_without_foundation_progress += 1
+                        
+                        if game.is_won():
+                            game_state = "won"
+                        elif detect_move_cycle(move_history, threshold=8):
+                            game_state = "lost"
+                        elif moves_without_foundation_progress > 120:
+                            game_state = "lost"
+                    continue
+                
+                # handle auto-complete button
+                if layout.get("auto_complete_button") and layout["auto_complete_button"].collidepoint(pos):
+                    auto_playing = not auto_playing
                     continue
 
                 if area == "stock":
@@ -411,28 +609,37 @@ if __name__ == "__main__":
                     else:
                         if game.waste.size() > 0:
                             game.stock.recycle_from(game.waste)
-                    # recalculate hints after drawing from stock if hints are enabled
-                    if hints_enabled:
-                        best_move_tree = find_best_move(game)
-                        best_move_graph = find_best_move_graph(game)
-                        button_message = {
-                            "graph_message": f"Best move from graph: {best_move_graph}",
-                            "tree_message": f"Best move from tree: {best_move_tree}",
-                        }
                     selected = None
                     continue
 
                 if selected:
                     moved = attempt_move(game, selected, (area, idx))
                     if moved:
+                        # track move for cycle detection
+                        move_info = {
+                            "type": f"{selected.get('type')}_to_{area}",
+                            "from": selected.get("index"),
+                            "to": idx
+                        }
+                        move_history.append(move_info)
+                        if len(move_history) > 30:
+                            move_history.pop(0)
+                        
                         selected = None
-                        if hints_enabled:
-                            best_move_tree = find_best_move(game)
-                            best_move_graph = find_best_move_graph(game)
-                            button_message = {
-                                "graph_message": f"Best move from graph: {best_move_graph}",
-                                "tree_message": f"Best move from tree: {best_move_tree}",
-                            }
+                        
+                        current_foundation_count = sum(len(game.foundations[s].cards) for s in ["H", "D", "C", "S"])
+                        if current_foundation_count > last_foundation_count:
+                            moves_without_foundation_progress = 0
+                            last_foundation_count = current_foundation_count
+                        else:
+                            moves_without_foundation_progress += 1
+                        
+                        if game.is_won():
+                            game_state = "won"
+                        elif detect_move_cycle(move_history, threshold=8):
+                            game_state = "lost"
+                        elif moves_without_foundation_progress > 120:
+                            game_state = "lost"
                         continue
                     if selected.get("type") == area and selected.get("index", -1) == idx and selected.get("card_index", -1) == card_idx:
                         selected = None
@@ -447,10 +654,57 @@ if __name__ == "__main__":
 
         screen.fill(BACKGROUND_COLOR)
 
+        # auto-play logic
+        if auto_playing and auto_play_delay <= 0:
+            # use simple greedy AI instead of tree search
+            from game_logic.greedy_ai import get_greedy_move
+            move = get_greedy_move(game)
+            if move:
+                apply_move_to_game(game, move)
+                
+                # track move for cycle detection
+                move_info = {
+                    "type": move.move_type,
+                    "from": move.details.get("from"),
+                    "to": move.details.get("to")
+                }
+                move_history.append(move_info)
+                if len(move_history) > 50:
+                    move_history.pop(0)
+                
+                current_foundation_count = sum(len(game.foundations[s].cards) for s in ["H", "D", "C", "S"])
+                if current_foundation_count > last_foundation_count:
+                    moves_without_foundation_progress = 0
+                    last_foundation_count = current_foundation_count
+                else:
+                    moves_without_foundation_progress += 1
+                
+                if game.is_won():
+                    game_state = "won"
+                    auto_playing = False
+                elif detect_move_cycle(move_history, threshold=8):
+                    game_state = "lost"
+                    auto_playing = False
+                elif moves_without_foundation_progress > 120:
+                    game_state = "lost"
+                    auto_playing = False
+                auto_play_delay = 5
+            else:
+                # no move found, but check if we can still draw from stock
+                if game.stock.size() > 0 or game.waste.size() > 0:
+                    auto_play_delay = 5
+                else:
+                    game_state = "lost"
+                    auto_playing = False
+        
+        if auto_play_delay > 0:
+            auto_play_delay -= 1
+        
         mouse_pos = pygame.mouse.get_pos()
         button_hover = layout.get("button") and layout["button"].collidepoint(mouse_pos)
         auto_tree_hover = layout.get("auto_tree_button") and layout["auto_tree_button"].collidepoint(mouse_pos)
         auto_graph_hover = layout.get("auto_graph_button") and layout["auto_graph_button"].collidepoint(mouse_pos)
+        auto_complete_hover = layout.get("auto_complete_button") and layout["auto_complete_button"].collidepoint(mouse_pos)
 
         draw_stock(screen, game.stock, layout["stock"], font_small, selected)
         draw_waste(screen, game.waste, layout["waste"], font, font_small, selected)
@@ -462,9 +716,11 @@ if __name__ == "__main__":
             draw_button(screen, layout["auto_tree_button"], "Auto Tree", font_small, bool(auto_tree_hover))
         if layout.get("auto_graph_button"):
             draw_button(screen, layout["auto_graph_button"], "Auto Graph", font_small, bool(auto_graph_hover))
+        if layout.get("auto_complete_button"):
+            button_label = "Stop Auto" if auto_playing else "Auto Play"
+            draw_button(screen, layout["auto_complete_button"], button_label, font_small, bool(auto_complete_hover))
         if layout.get("button"):
-            button_label = "Hide Hint" if hints_enabled else "Show Hint"
-            draw_button(screen, layout["button"], button_label, font_small, bool(button_hover))
+            draw_button(screen, layout["button"], "Get Hint", font_small, bool(button_hover))
 
         if button_message:
             draw_text(screen, button_message["graph_message"], (MARGIN, WINDOW_H - MARGIN - MARGIN - 20 - 22), font_small, (255, 255, 255))

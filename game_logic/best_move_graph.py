@@ -1,80 +1,19 @@
-import copy
+"""
+Graph-based AI for Solitaire using Breadth-First Search.
+
+Implements BFS to find the shortest sequence of moves to a winning state.
+Explores states level by level, maintaining a visited set to avoid cycles.
+Uses a queue (deque) for efficient frontier management and guarantees
+finding the shortest path if one exists within the time limit.
+
+Algorithm: BFS with visited set
+Time Complexity: O(V + E) where V=states, E=transitions
+Space Complexity: O(V) for visited set and queue
+"""
+
 from collections import deque
 import time
-
-class Move:
-    def __init__(self, move_type, details):
-        self.move_type = move_type
-        self.details = details
-    def __repr__(self):
-        card = self.details.get("card")
-        card_str = repr(card) if card else None
-        details_copy = self.details.copy()
-        if card:
-            details_copy["card"] = card_str
-        return f"Move({self.move_type}, {details_copy})"
-
-def serialize_state(game):
-    Board_ser = tuple(tuple((c.rank, c.suit, c.revealed) for c in pile.cards) for pile in game.Board)
-    foundation_ser = tuple(tuple((c.rank, c.suit) for c in game.foundations[suit].cards) for suit in ["H","D","C","S"])
-    stock_ser = tuple((c.rank, c.suit) for c in game.stock.cards)
-    waste_ser = tuple((c.rank, c.suit) for c in game.waste.cards)
-    return (Board_ser, foundation_ser, stock_ser, waste_ser)
-
-def score_state(game):
-    score = 0
-    for suit in ["H","D","C","S"]:
-        score += 10 * len(game.foundations[suit].cards)
-    for pile in game.Board:
-        for card in pile.cards:
-            if card.revealed:
-                score += 2
-    for pile in game.Board:
-        if pile.size() == 0:
-            score += 3
-    return score
-
-def apply_move(game, move):
-    g = copy.deepcopy(game)
-    m = move
-    if m.move_type == "draw_stock":
-        g.waste.add(g.stock.draw())
-        return g
-    if m.move_type == "reset_stock":
-        g.stock.recycle_from(g.waste)
-        return g
-    if m.move_type == "waste_to_foundation":
-        card = g.waste.pop()
-        g.foundations[card.suit].add(card)
-        return g
-    if m.move_type == "waste_to_Board":
-        card = g.waste.pop()
-        g.Board[m.details["column"]].add(card)
-        return g
-    if m.move_type == "Board_to_foundation":
-        col = m.details["from"]
-        start_idx = m.details.get("start_idx", len(g.Board[col].cards) - 1)
-        # only top card can go to foundation
-        if start_idx == len(g.Board[col].cards) - 1:
-            card = g.Board[col].pop()
-            g.foundations[card.suit].add(card)
-            if g.Board[col].size() > 0:
-                g.Board[col].cards[-1].revealed = True
-        return g
-    if m.move_type == "Board_to_Board":
-        src = m.details["from"]
-        dst = m.details["to"]
-        start_idx = m.details.get("start_idx", len(g.Board[src].cards) - 1)
-        # move sequence from start_idx to end
-        sequence = g.Board[src].cards[start_idx:]
-        del g.Board[src].cards[start_idx:]
-        for c in sequence:
-            c.revealed = True
-            g.Board[dst].add(c)
-        if g.Board[src].size() > 0:
-            g.Board[src].cards[-1].revealed = True
-        return g
-    return g
+from .move_utils import Move, serialize_state, score_state, apply_move
 
 def _is_valid_sequence(pile, start_idx):
     """check if cards from start_idx to end form a valid sequence"""

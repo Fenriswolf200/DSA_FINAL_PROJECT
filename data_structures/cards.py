@@ -1,8 +1,15 @@
+"""
+Card representation for Solitaire game.
+
+Provides the fundamental Card class with rank, suit, and visibility state.
+Includes helper methods for color checking and string representation.
+"""
+
 class Card:
     def __init__(self, rank: int, suit: str, revealed=False):
-        self.rank = rank  # 1-13 (Ace=1, Jack=11, Queen=12, King=13)
-        self.suit = suit  # "H", "D", "C", "S"
-        self.revealed = revealed   # revealed tracks if card is face-up (True) or face-down (False)
+        self.rank = rank
+        self.suit = suit
+        self.revealed = revealed
 
     def get_rank(self) -> int:
         return self.rank

@@ -77,6 +77,12 @@ def build_layout(window_w: int, window_h: int) -> Dict[str, Any]:
         BUTTON_W,
         BUTTON_H,
     )
+    auto_complete_button_rect = Rect(
+        window_w - MARGIN - BUTTON_W * 4 - 30,
+        button_y,
+        BUTTON_W,
+        BUTTON_H,
+    )
 
     return {
         "stock": stock_rect,
@@ -86,6 +92,7 @@ def build_layout(window_w: int, window_h: int) -> Dict[str, Any]:
         "button": hint_button_rect,
         "auto_tree_button": auto_tree_button_rect,
         "auto_graph_button": auto_graph_button_rect,
+        "auto_complete_button": auto_complete_button_rect,
     }
 
 # UI

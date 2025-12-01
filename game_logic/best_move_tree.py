@@ -1,95 +1,19 @@
-import copy
+"""
+Tree-based AI for Solitaire using Depth-First Search.
+
+Implements a recursive DFS algorithm with memoization to find optimal moves.
+Explores the game tree up to a specified depth, scoring each state and
+selecting moves that lead to higher scores. Uses state serialization to
+avoid revisiting previously explored positions.
+
+Algorithm: DFS with memoization
+Time Complexity: O(b^d) where b=branching factor, d=depth
+Space Complexity: O(d) for recursion + O(n) for memo
+"""
+
 import time
-
-# ---------------- MOVE CLASS ----------------
-class Move:
-    def __init__(self, move_type: str, details: dict):
-        self.move_type = move_type
-        self.details = details
-
-    def __repr__(self):
-        card = self.details.get("card")
-        card_str = repr(card) if card else None
-        details_copy = self.details.copy()
-        if card:
-            details_copy["card"] = card_str
-        return f"Move({self.move_type}, {details_copy})"
-
-# ---------------- STATE SERIALIZATION ----------------
-def serialize_state(game):
-    """
-    Canonical serialization: sort columns by top card to avoid swaps creating new states
-    """
-    board_ser = []
-    for pile in game.Board:
-        pile_ser = tuple((c.rank, c.suit, c.revealed) for c in pile.cards)
-        board_ser.append(pile_ser)
-    # Sort columns by top card (empty piles first) for canonical order
-    board_ser_sorted = tuple(sorted(board_ser, key=lambda x: x[-1] if x else (0, 'X', False)))
-    foundation_ser = tuple(tuple((c.rank, c.suit) for c in game.foundations[suit].cards) for suit in ["H","D","C","S"])
-    stock_ser = tuple((c.rank, c.suit) for c in game.stock.cards)
-    waste_ser = tuple((c.rank, c.suit) for c in game.waste.cards)
-    return (board_ser_sorted, foundation_ser, stock_ser, waste_ser)
-
-# ---------------- SCORING ----------------
-def score_state(game):
-    score = 0
-    for suit in ["H","D","C","S"]:
-        score += 10 * len(game.foundations[suit].cards)
-    for pile in game.Board:
-        for card in pile.cards:
-            if card.revealed:
-                score += 2
-    for pile in game.Board:
-        if pile.size() == 0:
-            score += 3
-    return score
-
-# ---------------- APPLY MOVE ----------------
-def apply_move(game, move):
-    g = copy.deepcopy(game)
-    m = move
-    if m.move_type == "draw_stock":
-        drawn = g.stock.draw()
-        if drawn:
-            drawn.revealed = True
-            g.waste.add(drawn)
-        return g
-    if m.move_type == "reset_stock":
-        g.stock.recycle_from(g.waste)
-        return g
-    if m.move_type == "waste_to_foundation":
-        card = g.waste.pop()
-        g.foundations[card.suit].add(card)
-        return g
-    if m.move_type == "waste_to_Board":
-        card = g.waste.pop()
-        g.Board[m.details["column"]].add(card)
-        return g
-    if m.move_type == "Board_to_foundation":
-        col = m.details["from"]
-        start_idx = m.details.get("start_idx", len(g.Board[col].cards) - 1)
-        # only top card can go to foundation
-        if start_idx == len(g.Board[col].cards) - 1:
-            card = g.Board[col].pop()
-            g.foundations[card.suit].add(card)
-            if g.Board[col].size() > 0:
-                g.Board[col].cards[-1].revealed = True
-        return g
-    if m.move_type == "Board_to_Board":
-        src = m.details["from"]
-        dst = m.details["to"]
-        start_idx = m.details.get("start_idx", len(g.Board[src].cards) - 1)
-        # move sequence from start_idx to end
-        sequence = g.Board[src].cards[start_idx:]
-        del g.Board[src].cards[start_idx:]
-        for c in sequence:
-            c.revealed = True
-            g.Board[dst].add(c)
-        if g.Board[src].size() > 0:
-            g.Board[src].cards[-1].revealed = True
-        return g
-    return g
+import random
+from .move_utils import Move, serialize_state, score_state, apply_move
 
 # ---------------- LEGAL MOVES ----------------
 def _is_valid_sequence(pile, start_idx):
@@ -145,7 +69,7 @@ def get_legal_moves(game):
     return moves
 
 # ---------------- TREE SEARCH WITH CYCLE DETECTION ----------------
-def search_best_move(game, depth=4, visited=None, alpha=-float("inf")):
+def search_best_move(game, depth=6, visited=None, alpha=-float("inf"), recent_moves=None):
     if visited is None:
         visited = set()
     state_key = serialize_state(game)
@@ -160,6 +84,55 @@ def search_best_move(game, depth=4, visited=None, alpha=-float("inf")):
     if not legal_moves:
         return score_state(game), None
 
+    # HARD FILTER: block recently repeated moves at root level
+    if recent_moves and depth == 6:
+        filtered_moves = []
+        blocked_moves = []
+        
+        for move in legal_moves:
+            move_str = f"{move.move_type}_{move.details.get('from')}_{move.details.get('to')}"
+            
+            # NEVER block foundation moves - they're always good
+            if "foundation" in move.move_type:
+                filtered_moves.append(move)
+                continue
+            
+            # count how many times this exact move appears in recent history
+            recent_count = 0
+            for i, recent in enumerate(recent_moves[-10:]):
+                recent_str = f"{recent.get('type')}_{recent.get('from')}_{recent.get('to')}"
+                if recent_str == move_str:
+                    recent_count += 1
+            
+            # check if this move was made in last 3 moves (immediate repeat)
+            immediate_repeat = False
+            if len(recent_moves) >= 3:
+                last_three = recent_moves[-3:]
+                for recent in last_three:
+                    recent_str = f"{recent.get('type')}_{recent.get('from')}_{recent.get('to')}"
+                    if recent_str == move_str:
+                        immediate_repeat = True
+                        break
+            
+            # block move if made 3+ times recently OR repeated in last 3 moves
+            if recent_count >= 3 or immediate_repeat:
+                blocked_moves.append(move)
+            else:
+                filtered_moves.append(move)
+        
+        # use filtered moves if we have any, otherwise fall back to all moves
+        if filtered_moves:
+            legal_moves = filtered_moves
+        else:
+            # all moves are blocked, so allow them but we're probably stuck
+            legal_moves = legal_moves
+
+    # ALWAYS PREFER FOUNDATION MOVES - they're always correct
+    foundation_moves = [m for m in legal_moves if "foundation" in m.move_type]
+    if foundation_moves and depth == 6:
+        # at root level, if we can move to foundation, DO IT
+        return 1000.0, random.choice(foundation_moves)
+    
     # Move ordering: foundation moves first
     def move_priority(m):
         if m.move_type in ["waste_to_foundation", "Board_to_foundation"]:
@@ -173,19 +146,44 @@ def search_best_move(game, depth=4, visited=None, alpha=-float("inf")):
     legal_moves.sort(key=move_priority, reverse=True)
 
     best_score = -float("inf")
-    best_move = None
+    best_moves = []
 
     for move in legal_moves:
         new_game = apply_move(game, move)
-        score, _ = search_best_move(new_game, depth - 1, visited.copy(), alpha=alpha)
+        # share visited set within the same branch to prevent cycles
+        score, _ = search_best_move(new_game, depth - 1, visited, alpha=alpha, recent_moves=None)
+        
+        # MASSIVE bonus for foundation moves
+        if "foundation" in move.move_type:
+            score += 1000.0
+        
+        # add random noise to break ties and ensure variety
+        score += random.uniform(0, 1.0)
         if score > best_score:
             best_score = score
-            best_move = move
+            best_moves = [move]
+        elif abs(score - best_score) < 5.0:  # consider scores within 5.0 as ties
+            best_moves.append(move)
         # update alpha to track best score found so far
-        # (no pruning in single-player - we explore all moves to find the best)
         if best_score > alpha:
             alpha = best_score
+    
+    # if multiple moves have the same score, prefer foundation moves
+    if len(best_moves) > 1:
+        foundation_moves_best = [m for m in best_moves if "foundation" in m.move_type]
+        if foundation_moves_best:
+            best_move = random.choice(foundation_moves_best)
+        else:
+            # avoid drawing from stock if other options exist
+            non_draw_moves = [m for m in best_moves if m.move_type not in ["draw_stock", "reset_stock"]]
+            if non_draw_moves:
+                best_move = random.choice(non_draw_moves)
+            else:
+                best_move = random.choice(best_moves)
+    else:
+        best_move = best_moves[0] if best_moves else None
 
+    visited.remove(state_key)  # backtrack: allow revisiting this state in other branches
     return best_score, best_move
 
 # ---------------- HUMAN-READABLE MOVE ----------------
@@ -207,9 +205,9 @@ def describe_move(move):
     return f"Move: {move}"
 
 # ---------------- FIND BEST MOVE ----------------
-def find_best_move(game, depth=4):
+def find_best_move(game, depth=6, recent_moves=None):
     start_time = time.time()
-    score, move = search_best_move(game, depth)
+    score, move = search_best_move(game, depth, recent_moves=recent_moves)
     elapsed_ms = (time.time() - start_time) * 1000
     move_str = describe_move(move)
     print(f"Tree search best move: {move_str} | Computed in {elapsed_ms:.0f}ms")

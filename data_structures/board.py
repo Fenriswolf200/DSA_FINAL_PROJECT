@@ -1,13 +1,22 @@
+"""
+Tableau pile implementation for Solitaire board columns.
+
+Implements game rules for tableau piles:
+- Kings only on empty piles
+- Descending rank with alternating colors
+- Supports sequences of face-up cards
+"""
+
 from data_structures.cards import Card
+from config import KING
 
 class BoardPile:
     def __init__(self):
-        self.cards = []  # can have face-down and face-up cards
+        self.cards = []
     
     def can_add(self, card: Card) -> bool:
-        # if empty, can only add King (rank 13)
         if len(self.cards) == 0:
-            return card.rank == 13
+            return card.rank == KING
         
         # get the last revealed (face-up) card
         top_card = self._get_top_revealed_card()

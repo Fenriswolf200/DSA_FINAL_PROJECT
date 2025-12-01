@@ -1,6 +1,10 @@
-RANKS = list(range(1, 14))  # 1=ace, 11=jack, 12=queen, 13=king
+RANKS = list(range(1, 14))
+ACE = 1
+JACK = 11
+QUEEN = 12
+KING = 13
 
-SUITS = ["H", "D", "C", "S"]  # hearts, diamonds, clubs, spades
+SUITS = ["H", "D", "C", "S"]
 
 RANK_NAMES = {
     1: "A",
@@ -33,8 +37,13 @@ SUIT_COLORS = {
 }
 
 # game settings
-DRAW_COUNT = 1  # number of cards to draw from stock at once (1 or 3)
-MAX_RECYCLES = None  # max times waste can be recycled to stock (None = unlimited)
+DRAW_COUNT = 1
+MAX_RECYCLES = None
 
-BOARD_COLUMNS = 7  # number of Board piles
-FOUNDATION_PILES = 4  # one for each suit
+BOARD_COLUMNS = 7
+FOUNDATION_PILES = 4
+
+# scoring constants for AI
+FOUNDATION_CARD_POINTS = 10
+REVEALED_CARD_POINTS = 2
+EMPTY_PILE_POINTS = 3
