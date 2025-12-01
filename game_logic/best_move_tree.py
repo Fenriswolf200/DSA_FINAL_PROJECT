@@ -2,9 +2,10 @@ import copy
 import time
 
 class Move:
-    def __init__(self, move_type:str, details:dict):
+    def __init__(self, move_type: str, details: dict):
         self.move_type = move_type
         self.details = details
+
     def __repr__(self):
         card = self.details.get("card")
         card_str = repr(card) if card else None
@@ -93,27 +94,37 @@ def get_legal_moves(game):
         moves.append(Move("reset_stock", {}))
     return moves
 
-def search_best_move(game, depth=4):
-    memo = {}
+def search_best_move(game, depth=4, memo=None):
+    if memo is None:
+        memo = {}
+
     state_key = serialize_state(game)
     if state_key in memo:
         return memo[state_key]
+
     if depth == 0:
-        return (score_state(game), None)
+        score = score_state(game)
+        memo[state_key] = (score, None)
+        return score, None
+
     legal = get_legal_moves(game)
     if not legal:
-        return (score_state(game), None)
+        score = score_state(game)
+        memo[state_key] = (score, None)
+        return score, None
+
     best_score = -10**9
     best_move = None
+
     for move in legal:
         new_game = apply_move(game, move)
-        score, _ = search_best_move(new_game, depth - 1)
+        score, _ = search_best_move(new_game, depth - 1, memo)
         if score > best_score:
             best_score = score
             best_move = move
-    memo[state_key] = (best_score, best_move)
-    return (best_score, best_move)
 
+    memo[state_key] = (best_score, best_move)
+    return best_score, best_move
 
 def find_best_move(game, depth=4):
     start_time = time.time()
@@ -122,28 +133,19 @@ def find_best_move(game, depth=4):
     best_move = ""
 
     if move.move_type == "Board_to_Board":
-        best_move = f"Move the {move.details["card"]} from deck {move.details["from"]} to {move.details["to"]}"
-
+        best_move = f"Move the {move.details['card']} from deck {move.details['from']} to {move.details['to']}"
     elif move.move_type == "Board_to_foundation":
-        best_move = f"Move the {move.details["card"]} in deck {move.details["from"]} to the Foundation"
-
+        best_move = f"Move the {move.details['card']} in deck {move.details['from']} to the Foundation"
     elif move.move_type == "waste_to_Board":
-        best_move = f"Move the {move.details["card"]} from the waste to the deck {move.details["to"]}"
-
+        best_move = f"Move the {move.details['card']} from the waste to the deck {move.details['column']}"
     elif move.move_type == "waste_to_foundation":
-        best_move = f"Move the {move.details["card"]} from the waste to the foundation"
-    
+        best_move = f"Move the {move.details['card']} from the waste to the foundation"
     elif move.move_type == "draw_stock":
         best_move = "Draw a card from the stock"
-
     elif move.move_type == "reset_stock":
         best_move = "Reset the stock"
-
     else:
         best_move = f"Best move using tree: {move} | Computed in {elapsed_ms:.0f}ms"
 
-
-
-
     print(f"Best move using tree: {move} | Computed in {elapsed_ms:.0f}ms")
-    return best_move 
+    return best_move
