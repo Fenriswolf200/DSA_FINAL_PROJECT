@@ -50,7 +50,10 @@ def apply_move(game, move):
     g = copy.deepcopy(game)
     m = move
     if m.move_type == "draw_stock":
-        g.waste.add(g.stock.draw())
+        drawn = g.stock.draw()
+        if drawn:
+            drawn.revealed = True
+            g.waste.add(drawn)
         return g
     if m.move_type == "reset_stock":
         g.stock.recycle_from(g.waste)
@@ -65,22 +68,48 @@ def apply_move(game, move):
         return g
     if m.move_type == "Board_to_foundation":
         col = m.details["from"]
-        card = g.Board[col].pop()
-        g.foundations[card.suit].add(card)
-        if g.Board[col].size() > 0:
-            g.Board[col].cards[-1].revealed = True
+        start_idx = m.details.get("start_idx", len(g.Board[col].cards) - 1)
+        # only top card can go to foundation
+        if start_idx == len(g.Board[col].cards) - 1:
+            card = g.Board[col].pop()
+            g.foundations[card.suit].add(card)
+            if g.Board[col].size() > 0:
+                g.Board[col].cards[-1].revealed = True
         return g
     if m.move_type == "Board_to_Board":
         src = m.details["from"]
         dst = m.details["to"]
-        card = g.Board[src].pop()
-        g.Board[dst].add(card)
+        start_idx = m.details.get("start_idx", len(g.Board[src].cards) - 1)
+        # move sequence from start_idx to end
+        sequence = g.Board[src].cards[start_idx:]
+        del g.Board[src].cards[start_idx:]
+        for c in sequence:
+            c.revealed = True
+            g.Board[dst].add(c)
         if g.Board[src].size() > 0:
             g.Board[src].cards[-1].revealed = True
         return g
     return g
 
 # ---------------- LEGAL MOVES ----------------
+def _is_valid_sequence(pile, start_idx):
+    """check if cards from start_idx to end form a valid sequence"""
+    if start_idx < 0 or start_idx >= len(pile.cards):
+        return False
+    # all cards in sequence must be revealed
+    for i in range(start_idx, len(pile.cards)):
+        if not pile.cards[i].revealed:
+            return False
+    # check ordering: descending rank, alternating colors
+    for i in range(start_idx, len(pile.cards) - 1):
+        a = pile.cards[i]
+        b = pile.cards[i + 1]
+        if a.rank != b.rank + 1:
+            return False
+        if a.is_red() == b.is_red():
+            return False
+    return True
+
 def get_legal_moves(game):
     moves = []
     if game.waste.size() > 0:
@@ -93,14 +122,22 @@ def get_legal_moves(game):
     for i, pile in enumerate(game.Board):
         if pile.size() == 0:
             continue
-        card = pile.peek()
-        if game.foundations[card.suit].can_add(card):
-            moves.append(Move("Board_to_foundation", {"from": i, "card": card}))
-        for j, dst in enumerate(game.Board):
-            if i == j or dst.size() == 0:
+        # find all valid sequences starting from each revealed card
+        for start_idx in range(len(pile.cards)):
+            if not pile.cards[start_idx].revealed:
                 continue
-            if dst.can_add(card):
-                moves.append(Move("Board_to_Board", {"from": i, "to": j, "card": card}))
+            if not _is_valid_sequence(pile, start_idx):
+                continue
+            card = pile.cards[start_idx]
+            # can move to foundation (only if it's the top card)
+            if start_idx == len(pile.cards) - 1 and game.foundations[card.suit].can_add(card):
+                moves.append(Move("Board_to_foundation", {"from": i, "card": card, "start_idx": start_idx}))
+            # can move sequence to another Board pile
+            for j, dst in enumerate(game.Board):
+                if i == j:
+                    continue
+                if dst.can_add(card):
+                    moves.append(Move("Board_to_Board", {"from": i, "to": j, "card": card, "start_idx": start_idx}))
     if game.stock.size() > 0:
         moves.append(Move("draw_stock", {}))
     elif game.waste.size() > 0:
@@ -140,12 +177,14 @@ def search_best_move(game, depth=4, visited=None, alpha=-float("inf")):
 
     for move in legal_moves:
         new_game = apply_move(game, move)
-        score, _ = search_best_move(new_game, depth - 1, visited.copy(), alpha=best_score)
+        score, _ = search_best_move(new_game, depth - 1, visited.copy(), alpha=alpha)
         if score > best_score:
             best_score = score
             best_move = move
-        if best_score >= alpha:
-            break  # pruning
+        # update alpha to track best score found so far
+        # (no pruning in single-player - we explore all moves to find the best)
+        if best_score > alpha:
+            alpha = best_score
 
     return best_score, best_move
 

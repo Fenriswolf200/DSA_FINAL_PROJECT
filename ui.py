@@ -56,10 +56,24 @@ def build_layout(window_w: int, window_h: int) -> Dict[str, Any]:
         for i in range(BOARD_COLUMNS)
     ]
 
-    # Bottom-right button
-    button_rect = Rect(
+    # bottom buttons - hint button and auto-play buttons
+    button_y = window_h - MARGIN - BUTTON_H
+    hint_button_rect = Rect(
         window_w - MARGIN - BUTTON_W,
-        window_h - MARGIN - BUTTON_H,
+        button_y,
+        BUTTON_W,
+        BUTTON_H,
+    )
+    # auto-play buttons to the left of hint button
+    auto_tree_button_rect = Rect(
+        window_w - MARGIN - BUTTON_W * 2 - 10,
+        button_y,
+        BUTTON_W,
+        BUTTON_H,
+    )
+    auto_graph_button_rect = Rect(
+        window_w - MARGIN - BUTTON_W * 3 - 20,
+        button_y,
         BUTTON_W,
         BUTTON_H,
     )
@@ -69,7 +83,9 @@ def build_layout(window_w: int, window_h: int) -> Dict[str, Any]:
         "waste": waste_rect,
         "foundations": foundation_rects,
         "Board": Board_rects,
-        "button": button_rect,
+        "button": hint_button_rect,
+        "auto_tree_button": auto_tree_button_rect,
+        "auto_graph_button": auto_graph_button_rect,
     }
 
 # UI

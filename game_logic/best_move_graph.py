@@ -53,20 +53,46 @@ def apply_move(game, move):
         return g
     if m.move_type == "Board_to_foundation":
         col = m.details["from"]
-        card = g.Board[col].pop()
-        g.foundations[card.suit].add(card)
-        if g.Board[col].size() > 0:
-            g.Board[col].cards[-1].revealed = True
+        start_idx = m.details.get("start_idx", len(g.Board[col].cards) - 1)
+        # only top card can go to foundation
+        if start_idx == len(g.Board[col].cards) - 1:
+            card = g.Board[col].pop()
+            g.foundations[card.suit].add(card)
+            if g.Board[col].size() > 0:
+                g.Board[col].cards[-1].revealed = True
         return g
     if m.move_type == "Board_to_Board":
         src = m.details["from"]
         dst = m.details["to"]
-        card = g.Board[src].pop()
-        g.Board[dst].add(card)
+        start_idx = m.details.get("start_idx", len(g.Board[src].cards) - 1)
+        # move sequence from start_idx to end
+        sequence = g.Board[src].cards[start_idx:]
+        del g.Board[src].cards[start_idx:]
+        for c in sequence:
+            c.revealed = True
+            g.Board[dst].add(c)
         if g.Board[src].size() > 0:
             g.Board[src].cards[-1].revealed = True
         return g
     return g
+
+def _is_valid_sequence(pile, start_idx):
+    """check if cards from start_idx to end form a valid sequence"""
+    if start_idx < 0 or start_idx >= len(pile.cards):
+        return False
+    # all cards in sequence must be revealed
+    for i in range(start_idx, len(pile.cards)):
+        if not pile.cards[i].revealed:
+            return False
+    # check ordering: descending rank, alternating colors
+    for i in range(start_idx, len(pile.cards) - 1):
+        a = pile.cards[i]
+        b = pile.cards[i + 1]
+        if a.rank != b.rank + 1:
+            return False
+        if a.is_red() == b.is_red():
+            return False
+    return True
 
 def get_legal_moves(game):
     moves = []
@@ -80,14 +106,22 @@ def get_legal_moves(game):
     for i, pile in enumerate(game.Board):
         if pile.size() == 0:
             continue
-        card = pile.peek()
-        if game.foundations[card.suit].can_add(card):
-            moves.append(Move("Board_to_foundation", {"from": i, "card": card}))
-        for j, dst in enumerate(game.Board):
-            if i == j or dst.size() == 0:
+        # find all valid sequences starting from each revealed card
+        for start_idx in range(len(pile.cards)):
+            if not pile.cards[start_idx].revealed:
                 continue
-            if dst.can_add(card):
-                moves.append(Move("Board_to_Board", {"from": i, "to": j, "card": card}))
+            if not _is_valid_sequence(pile, start_idx):
+                continue
+            card = pile.cards[start_idx]
+            # can move to foundation (only if it's the top card)
+            if start_idx == len(pile.cards) - 1 and game.foundations[card.suit].can_add(card):
+                moves.append(Move("Board_to_foundation", {"from": i, "card": card, "start_idx": start_idx}))
+            # can move sequence to another Board pile (including empty piles)
+            for j, dst in enumerate(game.Board):
+                if i == j:
+                    continue
+                if dst.can_add(card):
+                    moves.append(Move("Board_to_Board", {"from": i, "to": j, "card": card, "start_idx": start_idx}))
     if game.stock.size() > 0:
         moves.append(Move("draw_stock", {}))
     elif game.waste.size() > 0:
@@ -142,6 +176,6 @@ def find_best_move_graph(game, max_depth=4):
     elapsed_ms = (time.time() - start_time) * 1000
     print(f"Best move using graph: {best_move} | Computed in {elapsed_ms:.0f}ms")
 
-    move_text = describe_move(move)
+    move_text = describe_move(best_move)
 
     return move_text
