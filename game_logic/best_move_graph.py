@@ -94,6 +94,25 @@ def get_legal_moves(game):
         moves.append(Move("reset_stock", {}))
     return moves
 
+def describe_move(move):
+    if not move:
+        return "No move found"
+    if move.move_type == "Board_to_Board":
+        return f"Move {move.details['card']} from column {move.details['from']} to column {move.details['to']}"
+    if move.move_type == "Board_to_foundation":
+        return f"Move {move.details['card']} from column {move.details['from']} to the foundation"
+    if move.move_type == "waste_to_Board":
+        return f"Move {move.details['card']} from waste to column {move.details['column']}"
+    if move.move_type == "waste_to_foundation":
+        return f"Move {move.details['card']} from waste to the foundation"
+    if move.move_type == "draw_stock":
+        return "Draw a card from the stock"
+    if move.move_type == "reset_stock":
+        return "Reset the stock"
+    return f"Move: {move}"
+
+
+
 def find_best_move_graph(game, max_depth=4):
     start_time = time.time()
     visited = set()
@@ -122,4 +141,7 @@ def find_best_move_graph(game, max_depth=4):
             queue.append((new_game, depth+1, move_to_use))
     elapsed_ms = (time.time() - start_time) * 1000
     print(f"Best move using graph: {best_move} | Computed in {elapsed_ms:.0f}ms")
-    return best_move
+
+    move_text = describe_move(move)
+
+    return move_text
