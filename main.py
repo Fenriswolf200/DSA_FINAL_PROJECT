@@ -54,14 +54,21 @@ class SolitaireGame:
 
         self.deal_cards() 
 
-        # ||
-        # ||
-        # ||
-        # \/
 
-    # This function
+    # This function creates a deck of cards :|
+    def create_deck(self) -> list[Card]:
+        deck = []
+        for suit in SUITS:
+            for rank in RANKS:
+                deck.append(Card(rank, suit))
+        shuffle(deck)
+        return deck
+
+    # This function deals an x amount of cards increasing from 1 to 8 
+    # to each of the board columns and adds the remaining cards to the 
+    # stock
     def deal_cards(self):
-        deck = create_deck()
+        deck = self.create_deck()
         deck_index = 0
 
         for i in range(BOARD_COLUMNS):
@@ -75,48 +82,12 @@ class SolitaireGame:
             self.stock.add(deck[i])
 
 
-def create_deck() -> list[Card]:
-    deck = []
-    for suit in SUITS:
-        for rank in RANKS:
-            deck.append(Card(rank, suit))
-    shuffle(deck)
-    return deck
-
-
-
-def list_all_legal_moves(game):
-    moves = []
-
-    moves.append(("draw", None))
-
-    if game.waste.peek():
-        c = game.waste.peek()
-        if game.foundations[c.suit].can_add(c):
-            moves.append(("w->f", c))
-
-    if game.waste.peek():
-        c = game.waste.peek()
-        for i, pile in enumerate(game.Board):
-            if pile.can_add(c):
-                moves.append((f"w->t{i}", c))
-
-    for i, pile in enumerate(game.Board):
-        c = pile.peek()
-        if c and game.foundations[c.suit].can_add(c):
-            moves.append((f"t{i}->f", c))
-
-    for i, src in enumerate(game.Board):
-        c = src.peek()
-        if c:
-            for j, dst in enumerate(game.Board):
-                if i != j and dst.can_add(c):
-                    moves.append((f"t{i}->t{j}", c))
-
-    return moves
-
-
-
+# This function executes a move that moves a card in the game.
+# draw takes the top card from the stock and moves it to the waste
+# w->f moves the top card from waste and adds it to the matching foundation pile
+# w->tX moves the top card from waste and adds it to column x
+# tX->f moves the top card from column x and adds it to the suit's foundation
+# tX->tY moves the top card from column x to column y
 def apply_move(game, move):
     name, card = move
 
@@ -153,16 +124,8 @@ def apply_move(game, move):
 
 
 
-def parse_move_input(text, legal_moves):
-    text = text.strip().lower()
 
-    for mv in legal_moves:
-        if text == mv[0].lower():
-            return mv
-    return None
-
-
-
+# This function identifies what area of the board a mouse click targets and returns a descriptor for it
 def hit_test(layout: dict, pos, Board: list):
     x, y = pos
     if layout["stock"].collidepoint(x, y):
