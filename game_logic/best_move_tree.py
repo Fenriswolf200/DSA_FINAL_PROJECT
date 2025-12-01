@@ -14,6 +14,7 @@ class Move:
             details_copy["card"] = card_str
         return f"Move({self.move_type}, {details_copy})"
 
+# ---------------- STATE SERIALIZATION ----------------
 def serialize_state(game):
     Board_ser = tuple(tuple((c.rank, c.suit, c.revealed) for c in pile.cards) for pile in game.Board)
     foundation_ser = tuple(tuple((c.rank, c.suit) for c in game.foundations[suit].cards) for suit in ["H", "D", "C", "S"])
@@ -21,6 +22,7 @@ def serialize_state(game):
     waste_ser = tuple((c.rank, c.suit) for c in game.waste.cards)
     return (Board_ser, foundation_ser, stock_ser, waste_ser)
 
+# ---------------- SCORING ----------------
 def score_state(game):
     score = 0
     for suit in ["H", "D", "C", "S"]:
@@ -34,6 +36,7 @@ def score_state(game):
             score += 3
     return score
 
+# ---------------- APPLY MOVE ----------------
 def apply_move(game, move):
     g = copy.deepcopy(game)
     m = move
@@ -68,6 +71,7 @@ def apply_move(game, move):
         return g
     return g
 
+# ---------------- LEGAL MOVES ----------------
 def get_legal_moves(game):
     moves = []
     if game.waste.size() > 0:
@@ -94,7 +98,8 @@ def get_legal_moves(game):
         moves.append(Move("reset_stock", {}))
     return moves
 
-def search_best_move(game, depth=4, memo=None):
+# ---------------- SEARCH WITH PRUNING ----------------
+def search_best_move(game, depth=4, memo=None, alpha=-10**9):
     if memo is None:
         memo = {}
 
@@ -113,24 +118,46 @@ def search_best_move(game, depth=4, memo=None):
         memo[state_key] = (score, None)
         return score, None
 
+    # MOVE ORDERING
+    def move_priority(m):
+        if m.move_type in ["waste_to_foundation", "Board_to_foundation"]:
+            return 3
+        elif m.move_type in ["Board_to_Board", "waste_to_Board"]:
+            return 2
+        elif m.move_type in ["draw_stock"]:
+            return 1
+        else:
+            return 0
+
+    legal.sort(key=move_priority, reverse=True)
+
     best_score = -10**9
     best_move = None
 
     for move in legal:
         new_game = apply_move(game, move)
-        score, _ = search_best_move(new_game, depth - 1, memo)
+        score, _ = search_best_move(new_game, depth - 1, memo, alpha=best_score)
+
         if score > best_score:
             best_score = score
             best_move = move
 
+        # EARLY PRUNING
+        if best_score >= alpha:
+            break
+
     memo[state_key] = (best_score, best_move)
     return best_score, best_move
 
+# ---------------- FIND BEST MOVE ----------------
 def find_best_move(game, depth=4):
     start_time = time.time()
     _, move = search_best_move(game, depth)
     elapsed_ms = (time.time() - start_time) * 1000
-    best_move = ""
+
+    if not move:
+        print("No moves available")
+        return None
 
     if move.move_type == "Board_to_Board":
         best_move = f"Move the {move.details['card']} from deck {move.details['from']} to {move.details['to']}"
@@ -145,7 +172,7 @@ def find_best_move(game, depth=4):
     elif move.move_type == "reset_stock":
         best_move = "Reset the stock"
     else:
-        best_move = f"Best move using tree: {move} | Computed in {elapsed_ms:.0f}ms"
+        best_move = f"Best move: {move}"
 
-    print(f"Best move using tree: {move} | Computed in {elapsed_ms:.0f}ms")
+    print(f"Best move computed in {elapsed_ms:.0f}ms: {best_move}")
     return best_move
