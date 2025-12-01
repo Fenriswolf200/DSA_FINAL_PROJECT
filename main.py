@@ -258,8 +258,8 @@ if __name__ == "__main__":
     pygame.display.set_caption("Solitaire (Pygame)")
     screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
     clock = pygame.time.Clock()
-    font = pygame.font.SysFont(None, 24)
-    font_small = pygame.font.SysFont(None, 18)
+    font = pygame.font.SysFont('arial', 24)
+    font_small = pygame.font.SysFont('arial', 18)
 
     game = SolitaireGame()
     layout = build_layout(WINDOW_W, WINDOW_H)

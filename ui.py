@@ -149,7 +149,7 @@ def draw_foundations(surface: Surface, foundations: Dict[str, FoundationPile], r
             draw_card(surface, pile.peek(), rect.x, rect.y, font)
         else:
             draw_slot(surface, rect)
-        draw_pile_label(surface, rect, f"FND {suit}", font_small)
+        draw_pile_label(surface, rect, f"FND {SUIT_SYMBOLS[suit]}", font_small)
         if selected and selected.get("type") == "foundation" and selected.get("index") == i:
             pygame.draw.rect(surface, SELECT_COLOR, rect, width=3, border_radius=8)
 
@@ -158,19 +158,22 @@ def draw_foundations(surface: Surface, foundations: Dict[str, FoundationPile], r
 def draw_Board(surface: Surface, Board: List[BoardPile], rects: List[Rect], font: pygame.font.Font, font_small: pygame.font.Font, selected: Optional[Dict[str, Any]]):
     for i, pile in enumerate(Board):
         base = rects[i]
+        label_rect = Rect(base.x - 30, base.y, 25, 20)
+        draw_text(surface, f"T{i}", (label_rect.x, label_rect.y), font_small, LABEL_COLOR)
         if pile.size() == 0:
             draw_slot(surface, base)
-            draw_pile_label(surface, base, f"T{i}", font_small)
             if selected and selected.get("type") == "Board" and selected.get("index") == i:
                 pygame.draw.rect(surface, SELECT_COLOR, base, width=3, border_radius=8)
             continue
         y = base.y
+        last_card_y = y
         for c in pile.cards:
+            last_card_y = y
             draw_card(surface, c, base.x, y, font)
             y += SPREAD_FACEUP_Y if c.revealed else SPREAD_FACEDOWN_Y
-        draw_pile_label(surface, base, f"T{i}", font_small)
         if selected and selected.get("type") == "Board" and selected.get("index") == i:
-            pygame.draw.rect(surface, SELECT_COLOR, base, width=3, border_radius=8)
+            bottom_card_rect = Rect(base.x, last_card_y, CARD_W, CARD_H)
+            pygame.draw.rect(surface, SELECT_COLOR, bottom_card_rect, width=3, border_radius=8)
 
 
 # UI

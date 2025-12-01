@@ -19,10 +19,10 @@ RANK_NAMES = {
 }
 
 SUIT_SYMBOLS = {
-    "H": "H",  # hearts (red)
-    "D": "D",  # diamonds (red)
-    "C": "C",  # clubs (black)
-    "S": "S"   # spades (black)
+    "H": "♥",
+    "D": "♦",
+    "C": "♣",
+    "S": "♠"
 }
 
 SUIT_COLORS = {
